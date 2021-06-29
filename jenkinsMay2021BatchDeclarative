@@ -1,0 +1,63 @@
+pipeline{
+    agent any
+    triggers{
+       pollSCM('* * * * *')
+    }
+    
+    options{
+        timestamps()
+    buildDiscarder(logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '5', daysToKeepStr: '', numToKeepStr: '5'))
+    
+    }
+    
+    tools{
+        maven "maven3.6.3"
+    }
+    stages{
+    
+    stage('CheckoutCode'){
+        steps{
+            git branch: 'development', credentialsId: '2e46dbd7-80b8-4cde-9a7a-ea6b7d50992d', url: 'https://github.com/Shraddha19122016/maven-web-application.git'
+        }
+    }
+    
+    stage('Build'){
+        steps{
+            sh "mvn clean package"
+        }
+    }
+    stage('ExecuteSonarQubeReport'){
+       steps{
+           sh "mvn clean sonar:sonar"
+       }
+    }
+    stage('UploadArtifactIntoNexus'){
+        steps{
+            sh "mvn clean deploy"
+        }    
+        
+    }
+    stage('DeployAppIntoTomcatServer'){
+        steps{
+            sshagent(['3bb0c41f-6681-4861-8e02-b8f7ef6a58b6']) {
+                sh "scp -o StrictHostKeyChecking=no target/maven-web-application.war ec2-user@13.233.198.207:/opt/apache-tomcat-9.0.46/webapps/"
+    
+}
+        }
+    }
+}
+post{
+    success{
+emailext body: '''Build is Over-success!!
+Regards,
+Mithun Technologies.''', subject: 'Build is over-success!!', to: 'rathodshraddha27@gmail.com'
+
+}
+
+   failure{
+emailext body: '''Build is Over-failure!!
+Regards,
+Mithun Technologies.''', subject: 'Build is over-failure!!', to: 'rathodshraddha27@gmail.com'
+}    
+}
+}  
